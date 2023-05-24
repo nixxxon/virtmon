@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+command -v xrandr >/dev/null 2>&1 || { echo >&2 "xrandr required but not installed"; exit 1; }
+
+usage() {
+  cat <<EOF
+Usage: virtmon [COUNT]
+
+First run creates virtual monitors. Second run deletes all created virtual monitors (ignoring the [COUNT] argument).
+
+    [COUNT]      Number of virtual monitors to create, default is 2
+    -h, --help   Display help
+EOF
+}
+
+if [[ $1 == "-h" ]] || [[ $1 == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+virtual_monitor_name_prefix="VM"
+
+mapfile -t virtual_monitors < <(xrandr --listmonitors | grep "${virtual_monitor_name_prefix}-" | awk '{ print $2 }')
+current_virtual_monitor_count=${#virtual_monitors[@]} 
+if [ "$current_virtual_monitor_count" -gt 0 ]; then
+    echo "Deleting $current_virtual_monitor_count virtual monitors"
+    for monitor in "${virtual_monitors[@]}"; do
+        xrandr --delmonitor "$monitor" > /dev/null
+    done
+    exit 0
+fi
+
+virtual_monitor_count=${1-2}
+
+echo "Creating $virtual_monitor_count virtual monitors"
+
+primary_monitor=$(xrandr --current | grep 'primary')
+primary_monitor_name=$(echo "$primary_monitor" | awk '{print $1}')
+primary_monitor_width=$(echo "$primary_monitor" | awk '{print $4}' | cut -d 'x' -f1)
+primary_monitor_height=$(echo "$primary_monitor" | awk '{print $4}' | cut -d 'x' -f2 | cut -d '+' -f1)
+primary_monitor_physical_width=$(echo "$primary_monitor" | awk '{print $(NF-2)}' | cut -d 'm' -f1)
+primary_monitor_physical_height=$(echo "$primary_monitor" | awk '{print $(NF)}' | cut -d 'm' -f1)
+
+virtual_monitor_width=$((primary_monitor_width/virtual_monitor_count))
+virtual_monitor_physical_width=$((primary_monitor_physical_width/virtual_monitor_count))
+physical_width_diff=$((virtual_monitor_physical_width*virtual_monitor_count-primary_monitor_physical_width))
+
+for (( i=1; i<=virtual_monitor_count; i++)); do
+    output_name="none"
+    physical_width=$virtual_monitor_physical_width
+    if [ $i -eq 1 ]; then
+        output_name=$primary_monitor_name
+        physical_width=$((physical_width+physical_width_diff))
+    fi
+
+    xrandr_name="${virtual_monitor_name_prefix}-${i}"
+    xrandr_width="${virtual_monitor_width}/${physical_width}"
+    xrandr_height="${primary_monitor_height}/${primary_monitor_physical_height}"
+    xrandr_offset_x=$((virtual_monitor_width*(i-1)))
+
+    xrandr --setmonitor "$xrandr_name" "${xrandr_width}x${xrandr_height}+${xrandr_offset_x}+0" "${output_name}" > /dev/null
+done
+
