@@ -4,12 +4,13 @@ command -v xrandr >/dev/null 2>&1 || { echo >&2 "xrandr required but not install
 
 usage() {
   cat <<EOF
-Usage: virtmon [COUNT]
+Usage: virtmon [SPLITPOINTS]
 
-First run creates virtual monitors. Second run deletes all created virtual monitors (ignoring the [COUNT] argument).
+First run creates virtual monitors.
+Second run deletes all created virtual monitors (ignoring the [SPLITPOINTS] argument).
 
-    [COUNT]      Number of virtual monitors to create, default is 2
-    -h, --help   Display help
+    [SPLITPOINTS] Comma separated list of numbers between 1-99 (percentage left-right), default is 50
+    -h, --help    Display help
 EOF
 }
 
@@ -30,7 +31,14 @@ if [ "$current_virtual_monitor_count" -gt 0 ]; then
     exit 0
 fi
 
-virtual_monitor_count=${1-2}
+splitpoints_argument=${1-50}
+
+IFS=',' read -ra splitpoints <<< "$splitpoints_argument"
+unset IFS
+readarray -t splitpoints < <(printf '%s\0' "${splitpoints[@]}" | sort -z | xargs -0n1)
+
+splitpoint_count=${#splitpoints[@]}
+virtual_monitor_count=$((splitpoint_count+1))
 
 echo "Creating $virtual_monitor_count virtual monitors"
 
@@ -41,23 +49,30 @@ primary_monitor_height=$(echo "$primary_monitor" | awk '{print $4}' | cut -d 'x'
 primary_monitor_physical_width=$(echo "$primary_monitor" | awk '{print $(NF-2)}' | cut -d 'm' -f1)
 primary_monitor_physical_height=$(echo "$primary_monitor" | awk '{print $(NF)}' | cut -d 'm' -f1)
 
-virtual_monitor_width=$((primary_monitor_width/virtual_monitor_count))
-virtual_monitor_physical_width=$((primary_monitor_physical_width/virtual_monitor_count))
-physical_width_diff=$((virtual_monitor_physical_width*virtual_monitor_count-primary_monitor_physical_width))
+pixel_offset_x=0
+physical_offset_x=0
+for (( i=0; i<virtual_monitor_count; i++)); do
+    if [ $i -eq "$splitpoint_count" ]; then
+        virtual_monitor_width=$((primary_monitor_width-pixel_offset_x))
+        virtual_monitor_physical_width=$((primary_monitor_physical_width-physical_offset_x))
+    else
+        splitpoint=${splitpoints[i]}
+        virtual_monitor_width=$((primary_monitor_width*splitpoint/100-pixel_offset_x))
+        virtual_monitor_physical_width=$((primary_monitor_physical_width*splitpoint/100-physical_offset_x))
+    fi
 
-for (( i=1; i<=virtual_monitor_count; i++)); do
     output_name="none"
-    physical_width=$virtual_monitor_physical_width
-    if [ $i -eq 1 ]; then
+    if [ $i -eq 0 ]; then
         output_name=$primary_monitor_name
-        physical_width=$((physical_width+physical_width_diff))
     fi
 
     xrandr_name="${virtual_monitor_name_prefix}-${i}"
-    xrandr_width="${virtual_monitor_width}/${physical_width}"
+    xrandr_width="${virtual_monitor_width}/${virtual_monitor_physical_width}"
     xrandr_height="${primary_monitor_height}/${primary_monitor_physical_height}"
-    xrandr_offset_x=$((virtual_monitor_width*(i-1)))
 
-    xrandr --setmonitor "$xrandr_name" "${xrandr_width}x${xrandr_height}+${xrandr_offset_x}+0" "${output_name}" > /dev/null
+    xrandr --setmonitor "$xrandr_name" "${xrandr_width}x${xrandr_height}+${pixel_offset_x}+0" "${output_name}" > /dev/null
+
+    pixel_offset_x=$((pixel_offset_x+virtual_monitor_width))
+    physical_offset_x=$((physical_offset_x+virtual_monitor_physical_width))
 done
 
