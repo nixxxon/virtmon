@@ -14,8 +14,12 @@ All dependencies can be installed with your package manager.
 
 ## Installation
 
+Download the script, make it executable and add it to your `$PATH`.
+
 ```
-sudo wget https://raw.githubusercontent.com/nixxxon/virtmon/master/virtmon -qO /usr/local/bin/virtmon && sudo chmod +x /usr/local/bin/virtmon
+wget https://raw.githubusercontent.com/nixxxon/virtmon/master/virtmon -q \
+    && chmod +x virtmon \
+    && sudo mv virtmon /usr/local/bin/virtmon
 ```
 
 ## Usage
