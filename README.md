@@ -10,8 +10,6 @@ One use case is to make screen sharing better (for the viewer) by splitting a la
 
 - [xrandr](https://www.x.org/wiki/Projects/XRandR)
 
-All dependencies can be installed with your package manager.
-
 ## Installation
 
 Download the script, make it executable and add it to your `$PATH`.
