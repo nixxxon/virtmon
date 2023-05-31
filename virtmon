@@ -37,6 +37,24 @@ IFS=',' read -ra splitpoints <<< "$splitpoints_argument"
 unset IFS
 readarray -t splitpoints < <(printf '%s\0' "${splitpoints[@]}" | sort -z | xargs -0n1)
 
+number_regex='^[0-9]+$'
+for splitpoint in "${splitpoints[@]}"; do
+    if ! [[ "$splitpoint" =~ $number_regex ]]; then
+        echo "Splitpoint must be a number"
+        exit 1
+    fi
+
+    if [ "$splitpoint" -gt 99 ]; then
+        echo "Splitpoint cannot be greater than 99"
+        exit 1
+    fi
+
+    if [ "$splitpoint" -lt 1 ]; then
+        echo "Splitpoint cannot be less than 1"
+        exit 1
+    fi
+done
+
 splitpoint_count=${#splitpoints[@]}
 virtual_monitor_count=$((splitpoint_count+1))
 
