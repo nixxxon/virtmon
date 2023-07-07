@@ -35,7 +35,7 @@ splitpoints_argument=${1-50}
 
 IFS=',' read -ra splitpoints <<< "$splitpoints_argument"
 unset IFS
-readarray -t splitpoints < <(printf '%s\0' "${splitpoints[@]}" | sort -z | xargs -0n1)
+mapfile -t splitpoints < <(printf '%s\0' "${splitpoints[@]}" | sort -z | xargs -0n1)
 
 number_regex='^[0-9]+$'
 for splitpoint in "${splitpoints[@]}"; do
